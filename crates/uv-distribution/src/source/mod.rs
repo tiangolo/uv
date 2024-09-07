@@ -39,7 +39,7 @@ use crate::metadata::{ArchiveMetadata, Metadata};
 use crate::reporter::Facade;
 use crate::source::built_wheel_metadata::BuiltWheelMetadata;
 use crate::source::revision::Revision;
-use crate::{Reporter, RequiresDist};
+use crate::{LowerBound, Reporter, RequiresDist};
 
 mod built_wheel_metadata;
 mod revision;
@@ -392,6 +392,7 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
             requires_dist,
             project_root,
             self.build_context.sources(),
+            LowerBound::Warn,
         )
         .await?;
         Ok(requires_dist)

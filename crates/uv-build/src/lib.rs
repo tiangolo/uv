@@ -31,7 +31,7 @@ use pep440_rs::Version;
 use pep508_rs::PackageName;
 use pypi_types::{Requirement, VerbatimParsedUrl};
 use uv_configuration::{BuildKind, BuildOutput, ConfigSettings, SourceStrategy};
-use uv_distribution::RequiresDist;
+use uv_distribution::{LowerBound, RequiresDist};
 use uv_fs::{rename_with_retry, PythonExt, Simplified};
 use uv_python::{Interpreter, PythonEnvironment};
 use uv_types::{BuildContext, BuildIsolation, SourceBuildTrait};
@@ -674,6 +674,7 @@ impl SourceBuild {
                                     requires_dist,
                                     source_tree,
                                     source_strategy,
+                                    LowerBound::Allow,
                                 )
                                 .await
                                 .map_err(Error::Lowering)?;
@@ -1099,6 +1100,7 @@ async fn create_pep517_build_environment(
                     requires_dist,
                     source_tree,
                     source_strategy,
+                    LowerBound::Allow,
                 )
                 .await
                 .map_err(Error::Lowering)?;
@@ -1125,8 +1127,6 @@ async fn create_pep517_build_environment(
             .cloned()
             .chain(extra_requires)
             .collect();
-
-        // STOPSHIP(charlie): This also needs to use sources, I guess? More debatable.
 
         let resolution = build_context
             .resolve(&requirements)
