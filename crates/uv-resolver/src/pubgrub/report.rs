@@ -8,7 +8,7 @@ use owo_colors::OwoColorize;
 use pubgrub::{DerivationTree, Derived, External, Map, Range, ReportFormatter, Term};
 use rustc_hash::FxHashMap;
 
-use distribution_types::{IndexLocations, IndexUrl};
+use distribution_types::{Index, IndexLocations, IndexUrl};
 use pep440_rs::Version;
 use uv_configuration::IndexStrategy;
 use uv_normalize::PackageName;
@@ -703,6 +703,7 @@ impl PubGrubReportFormatter<'_> {
                 // indexes were not queried, and could contain a compatible version.
                 if let Some(next_index) = index_locations
                     .indexes()
+                    .map(Index::url)
                     .skip_while(|url| *url != found_index)
                     .nth(1)
                 {

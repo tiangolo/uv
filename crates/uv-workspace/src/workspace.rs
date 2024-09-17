@@ -1,20 +1,20 @@
 //! Resolve the current [`ProjectWorkspace`] or [`Workspace`].
 
+use distribution_types::Index;
 use either::Either;
 use glob::{glob, GlobError, PatternError};
+use pep508_rs::{MarkerTree, RequirementOrigin, VerbatimUrl};
+use pypi_types::{Requirement, RequirementSource, SupportedEnvironments, VerbatimParsedUrl};
 use rustc_hash::FxHashSet;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use tracing::{debug, trace, warn};
-
-use pep508_rs::{MarkerTree, RequirementOrigin, VerbatimUrl};
-use pypi_types::{Requirement, RequirementSource, SupportedEnvironments, VerbatimParsedUrl};
 use uv_fs::{Simplified, CWD};
 use uv_normalize::{GroupName, PackageName, DEV_DEPENDENCIES};
 use uv_warnings::{warn_user, warn_user_once};
 
 use crate::pyproject::{
-    Project, PyProjectToml, PyprojectTomlError, Source, Sources, ToolUvSources, ToolUvWorkspace,
+    Project, PyProjectToml, PyprojectTomlError, Sources, ToolUvSources, ToolUvWorkspace,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -79,6 +79,10 @@ pub struct Workspace {
     ///
     /// This table is overridden by the project sources.
     sources: BTreeMap<PackageName, Sources>,
+    /// The index table from the workspace `pyproject.toml`.
+    ///
+    /// This table is overridden by the project indexes.
+    indexes: Vec<Index>,
     /// The `pyproject.toml` of the workspace root.
     pyproject_toml: PyProjectToml,
 }
@@ -521,20 +525,9 @@ impl Workspace {
         &self.sources
     }
 
-    /// Returns an iterator over all sources in the workspace.
-    pub fn iter_sources(&self) -> impl Iterator<Item = &Source> {
-        self.packages
-            .values()
-            .filter_map(|member| {
-                member.pyproject_toml().tool.as_ref().and_then(|tool| {
-                    tool.uv
-                        .as_ref()
-                        .and_then(|uv| uv.sources.as_ref())
-                        .map(ToolUvSources::inner)
-                        .map(|sources| sources.values().flat_map(Sources::iter))
-                })
-            })
-            .flatten()
+    /// The index table from the workspace `pyproject.toml`.
+    pub fn indexes(&self) -> &[Index] {
+        &self.indexes
     }
 
     /// The `pyproject.toml` of the workspace.
@@ -751,11 +744,18 @@ impl Workspace {
             .and_then(|uv| uv.sources)
             .map(ToolUvSources::into_inner)
             .unwrap_or_default();
+        let workspace_indexes = workspace_pyproject_toml
+            .tool
+            .clone()
+            .and_then(|tool| tool.uv)
+            .and_then(|uv| uv.index)
+            .unwrap_or_default();
 
         Ok(Workspace {
             install_path: workspace_root,
             packages: workspace_members,
             sources: workspace_sources,
+            indexes: workspace_indexes,
             pyproject_toml: workspace_pyproject_toml,
         })
     }
@@ -1057,6 +1057,7 @@ impl ProjectWorkspace {
                     // There may be package sources, but we don't need to duplicate them into the
                     // workspace sources.
                     sources: BTreeMap::default(),
+                    indexes: Vec::default(),
                     pyproject_toml: project_pyproject_toml.clone(),
                 },
             });
@@ -1626,6 +1627,7 @@ mod tests {
               }
             },
             "sources": {},
+            "indexes": [],
             "pyproject_toml": {
               "project": {
                 "name": "bird-feeder",
@@ -1677,6 +1679,7 @@ mod tests {
                   }
                 },
                 "sources": {},
+                "indexes": [],
                 "pyproject_toml": {
                   "project": {
                     "name": "bird-feeder",
@@ -1762,6 +1765,7 @@ mod tests {
                     }
                   ]
                 },
+                "indexes": [],
                 "pyproject_toml": {
                   "project": {
                     "name": "albatross",
@@ -1783,6 +1787,7 @@ mod tests {
                           }
                         ]
                       },
+                      "index": null,
                       "workspace": {
                         "members": [
                           "packages/*"
@@ -1865,11 +1870,13 @@ mod tests {
                   }
                 },
                 "sources": {},
+                "indexes": [],
                 "pyproject_toml": {
                   "project": null,
                   "tool": {
                     "uv": {
                       "sources": null,
+                      "index": null,
                       "workspace": {
                         "members": [
                           "packages/*"
@@ -1923,6 +1930,7 @@ mod tests {
                   }
                 },
                 "sources": {},
+                "indexes": [],
                 "pyproject_toml": {
                   "project": {
                     "name": "albatross",
@@ -2054,6 +2062,7 @@ mod tests {
                   }
                 },
                 "sources": {},
+                "indexes": [],
                 "pyproject_toml": {
                   "project": {
                     "name": "albatross",
@@ -2067,6 +2076,7 @@ mod tests {
                   "tool": {
                     "uv": {
                       "sources": null,
+                      "index": null,
                       "workspace": {
                         "members": [
                           "packages/*"
@@ -2152,6 +2162,7 @@ mod tests {
                   }
                 },
                 "sources": {},
+                "indexes": [],
                 "pyproject_toml": {
                   "project": {
                     "name": "albatross",
@@ -2165,6 +2176,7 @@ mod tests {
                   "tool": {
                     "uv": {
                       "sources": null,
+                      "index": null,
                       "workspace": {
                         "members": [
                           "packages/seeds",
@@ -2264,6 +2276,7 @@ mod tests {
                   }
                 },
                 "sources": {},
+                "indexes": [],
                 "pyproject_toml": {
                   "project": {
                     "name": "albatross",
@@ -2277,6 +2290,7 @@ mod tests {
                   "tool": {
                     "uv": {
                       "sources": null,
+                      "index": null,
                       "workspace": {
                         "members": [
                           "packages/seeds",
@@ -2350,6 +2364,7 @@ mod tests {
                   }
                 },
                 "sources": {},
+                "indexes": [],
                 "pyproject_toml": {
                   "project": {
                     "name": "albatross",
@@ -2363,6 +2378,7 @@ mod tests {
                   "tool": {
                     "uv": {
                       "sources": null,
+                      "index": null,
                       "workspace": {
                         "members": [
                           "packages/seeds",

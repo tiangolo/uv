@@ -8,6 +8,7 @@ description = "Parse PEP 723-style Python scripts."
 workspace = true
 
 [dependencies]
+distribution-types = { workspace = true }
 pep440_rs = { workspace = true }
 pep508_rs = { workspace = true }
 pypi-types = { workspace = true }

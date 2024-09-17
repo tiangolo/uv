@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process;
 use std::str::FromStr;
 
-use distribution_types::{DependencyMetadata, IndexLocations};
+use distribution_types::{DependencyMetadata, Index, IndexLocations};
 use install_wheel_rs::linker::LinkMode;
 use pep508_rs::{ExtraName, RequirementOrigin};
 use pypi_types::{Requirement, SupportedEnvironments};
@@ -1900,8 +1900,19 @@ impl From<ResolverOptions> for ResolverSettings {
     fn from(value: ResolverOptions) -> Self {
         Self {
             index_locations: IndexLocations::new(
-                value.index_url,
-                value.extra_index_url.unwrap_or_default(),
+                value
+                    .index
+                    .into_iter()
+                    .flatten()
+                    .chain(
+                        value
+                            .extra_index_url
+                            .into_iter()
+                            .flatten()
+                            .map(Index::from_extra_index_url),
+                    )
+                    .chain(value.index_url.into_iter().map(Index::from_index_url))
+                    .collect(),
                 value.find_links.unwrap_or_default(),
                 value.no_index.unwrap_or_default(),
             ),
@@ -2027,8 +2038,19 @@ impl From<ResolverInstallerOptions> for ResolverInstallerSettings {
     fn from(value: ResolverInstallerOptions) -> Self {
         Self {
             index_locations: IndexLocations::new(
-                value.index_url,
-                value.extra_index_url.unwrap_or_default(),
+                value
+                    .index
+                    .into_iter()
+                    .flatten()
+                    .chain(
+                        value
+                            .extra_index_url
+                            .into_iter()
+                            .flatten()
+                            .map(Index::from_extra_index_url),
+                    )
+                    .chain(value.index_url.into_iter().map(Index::from_index_url))
+                    .collect(),
                 value.find_links.unwrap_or_default(),
                 value.no_index.unwrap_or_default(),
             ),
@@ -2134,6 +2156,7 @@ impl PipSettings {
             break_system_packages,
             target,
             prefix,
+            index,
             index_url,
             extra_index_url,
             no_index,
@@ -2185,6 +2208,7 @@ impl PipSettings {
         } = pip.unwrap_or_default();
 
         let ResolverInstallerOptions {
+            index: top_level_index,
             index_url: top_level_index_url,
             extra_index_url: top_level_extra_index_url,
             no_index: top_level_no_index,
@@ -2216,6 +2240,7 @@ impl PipSettings {
         // preferring the latter.
         //
         // For example, prefer `tool.uv.pip.index-url` over `tool.uv.index-url`.
+        let index = index.combine(top_level_index);
         let index_url = index_url.combine(top_level_index_url);
         let extra_index_url = extra_index_url.combine(top_level_extra_index_url);
         let no_index = no_index.combine(top_level_no_index);
@@ -2241,10 +2266,25 @@ impl PipSettings {
 
         Self {
             index_locations: IndexLocations::new(
-                args.index_url.combine(index_url),
-                args.extra_index_url
-                    .combine(extra_index_url)
-                    .unwrap_or_default(),
+                args.index
+                    .into_iter()
+                    .flatten()
+                    .chain(
+                        args.extra_index_url
+                            .into_iter()
+                            .flatten()
+                            .map(Index::from_extra_index_url),
+                    )
+                    .chain(args.index_url.into_iter().map(Index::from_index_url))
+                    .chain(index.into_iter().flatten())
+                    .chain(
+                        extra_index_url
+                            .into_iter()
+                            .flatten()
+                            .map(Index::from_extra_index_url),
+                    )
+                    .chain(index_url.into_iter().map(Index::from_index_url))
+                    .collect(),
                 args.find_links.combine(find_links).unwrap_or_default(),
                 args.no_index.combine(no_index).unwrap_or_default(),
             ),

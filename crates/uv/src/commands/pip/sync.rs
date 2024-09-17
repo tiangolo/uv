@@ -5,7 +5,7 @@ use anyhow::Result;
 use owo_colors::OwoColorize;
 use tracing::debug;
 
-use distribution_types::{DependencyMetadata, IndexLocations, Resolution};
+use distribution_types::{DependencyMetadata, Index, IndexLocations, Resolution};
 use install_wheel_rs::linker::LinkMode;
 use pep508_rs::PackageName;
 use uv_auth::store_credentials_from_url;
@@ -215,11 +215,18 @@ pub(crate) async fn pip_sync(
     };
 
     // Incorporate any index locations from the provided sources.
-    let index_locations =
-        index_locations.combine(index_url, extra_index_urls, find_links, no_index);
+    let index_locations = index_locations.combine(
+        extra_index_urls
+            .into_iter()
+            .map(Index::from_extra_index_url)
+            .chain(index_url.map(Index::from_index_url))
+            .collect(),
+        find_links,
+        no_index,
+    );
 
     // Add all authenticated sources to the cache.
-    for url in index_locations.urls() {
+    for url in index_locations.allowed_urls() {
         store_credentials_from_url(url);
     }
 

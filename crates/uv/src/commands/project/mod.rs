@@ -5,7 +5,9 @@ use itertools::Itertools;
 use owo_colors::OwoColorize;
 use tracing::debug;
 
-use distribution_types::{Resolution, UnresolvedRequirement, UnresolvedRequirementSpecification};
+use distribution_types::{
+    Index, Resolution, UnresolvedRequirement, UnresolvedRequirementSpecification,
+};
 use pep440_rs::{Version, VersionSpecifiers};
 use pep508_rs::MarkerTreeContents;
 use pypi_types::Requirement;
@@ -624,7 +626,7 @@ pub(crate) async fn resolve_names(
     } = settings;
 
     // Add all authenticated sources to the cache.
-    for url in index_locations.urls() {
+    for url in index_locations.allowed_urls() {
         store_credentials_from_url(url);
     }
 
@@ -772,7 +774,7 @@ pub(crate) async fn resolve_environment<'a>(
     let python_requirement = PythonRequirement::from_interpreter(interpreter);
 
     // Add all authenticated sources to the cache.
-    for url in index_locations.urls() {
+    for url in index_locations.allowed_urls() {
         store_credentials_from_url(url);
     }
 
@@ -931,7 +933,7 @@ pub(crate) async fn sync_environment(
     let markers = interpreter.resolver_markers();
 
     // Add all authenticated sources to the cache.
-    for url in index_locations.urls() {
+    for url in index_locations.allowed_urls() {
         store_credentials_from_url(url);
     }
 
@@ -1120,7 +1122,7 @@ pub(crate) async fn update_environment(
     }
 
     // Add all authenticated sources to the cache.
-    for url in index_locations.urls() {
+    for url in index_locations.allowed_urls() {
         store_credentials_from_url(url);
     }
 
@@ -1330,7 +1332,7 @@ fn warn_on_requirements_txt_setting(
         warn_user_once!("Ignoring `--no-index` from requirements file. Instead, use the `--no-index` command-line argument, or set `no-index` in a `uv.toml` or `pyproject.toml` file.");
     } else {
         if let Some(index_url) = index_url {
-            if settings.index_locations.index() != Some(index_url) {
+            if settings.index_locations.default_index().map(Index::url) != Some(index_url) {
                 warn_user_once!(
                     "Ignoring `--index-url` from requirements file: `{index_url}`. Instead, use the `--index-url` command-line argument, or set `index-url` in a `uv.toml` or `pyproject.toml` file."
                 );
@@ -1339,8 +1341,8 @@ fn warn_on_requirements_txt_setting(
         for extra_index_url in extra_index_urls {
             if !settings
                 .index_locations
-                .extra_index()
-                .contains(extra_index_url)
+                .implicit_indexes()
+                .any(|index| index.url() == extra_index_url)
             {
                 warn_user_once!(
                     "Ignoring `--extra-index-url` from requirements file: `{extra_index_url}`. Instead, use the `--extra-index-url` command-line argument, or set `extra-index-url` in a `uv.toml` or `pyproject.toml` file.`"

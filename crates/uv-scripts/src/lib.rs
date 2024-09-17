@@ -4,13 +4,13 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::LazyLock;
 
+use distribution_types::Index;
 use memchr::memmem::Finder;
-use serde::Deserialize;
-use thiserror::Error;
-
 use pep440_rs::VersionSpecifiers;
 use pep508_rs::PackageName;
 use pypi_types::VerbatimParsedUrl;
+use serde::Deserialize;
+use thiserror::Error;
 use uv_settings::{GlobalOptions, ResolverInstallerOptions};
 use uv_workspace::pyproject::Sources;
 
@@ -194,6 +194,7 @@ pub struct ToolUv {
     #[serde(flatten)]
     pub top_level: ResolverInstallerOptions,
     pub sources: Option<BTreeMap<PackageName, Sources>>,
+    pub indexes: Option<Vec<Index>>,
 }
 
 #[derive(Debug, Error)]

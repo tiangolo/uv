@@ -6,7 +6,7 @@ use owo_colors::OwoColorize;
 use tracing::{debug, enabled, Level};
 
 use distribution_types::{
-    DependencyMetadata, IndexLocations, NameRequirementSpecification, Resolution,
+    DependencyMetadata, Index, IndexLocations, NameRequirementSpecification, Resolution,
     UnresolvedRequirementSpecification,
 };
 use install_wheel_rs::linker::LinkMode;
@@ -272,11 +272,18 @@ pub(crate) async fn pip_install(
     let dev = Vec::default();
 
     // Incorporate any index locations from the provided sources.
-    let index_locations =
-        index_locations.combine(index_url, extra_index_urls, find_links, no_index);
+    let index_locations = index_locations.combine(
+        extra_index_urls
+            .into_iter()
+            .map(Index::from_extra_index_url)
+            .chain(index_url.map(Index::from_index_url))
+            .collect(),
+        find_links,
+        no_index,
+    );
 
     // Add all authenticated sources to the cache.
-    for url in index_locations.urls() {
+    for url in index_locations.allowed_urls() {
         store_credentials_from_url(url);
     }
 

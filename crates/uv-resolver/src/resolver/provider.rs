@@ -1,7 +1,6 @@
-use std::future::Future;
-
-use distribution_types::{Dist, IndexLocations};
+use distribution_types::{Dist, IndexLocations, IndexUrl};
 use platform_tags::Tags;
+use std::future::Future;
 use uv_configuration::BuildOptions;
 use uv_distribution::{ArchiveMetadata, DistributionDatabase};
 use uv_normalize::PackageName;
@@ -49,6 +48,7 @@ pub trait ResolverProvider {
     fn get_package_versions<'io>(
         &'io self,
         package_name: &'io PackageName,
+        index: Option<&'io IndexUrl>,
     ) -> impl Future<Output = PackageVersionsResult> + 'io;
 
     /// Get the metadata for a distribution.
@@ -114,11 +114,12 @@ impl<'a, Context: BuildContext> ResolverProvider for DefaultResolverProvider<'a,
     async fn get_package_versions<'io>(
         &'io self,
         package_name: &'io PackageName,
+        index: Option<&'io IndexUrl>,
     ) -> PackageVersionsResult {
         let result = self
             .fetcher
             .client()
-            .managed(|client| client.simple(package_name))
+            .managed(|client| client.simple(package_name, index))
             .await;
 
         match result {

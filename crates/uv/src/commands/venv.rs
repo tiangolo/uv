@@ -226,7 +226,7 @@ async fn venv_impl(
     let interpreter = python.into_interpreter();
 
     // Add all authenticated sources to the cache.
-    for url in index_locations.urls() {
+    for url in index_locations.allowed_urls() {
         store_credentials_from_url(url);
     }
 
@@ -275,7 +275,7 @@ async fn venv_impl(
         let interpreter = venv.interpreter();
 
         // Add all authenticated sources to the cache.
-        for url in index_locations.urls() {
+        for url in index_locations.allowed_urls() {
             store_credentials_from_url(url);
         }
 

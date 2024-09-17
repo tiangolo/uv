@@ -6,6 +6,7 @@ use thiserror::Error;
 use url::Url;
 
 use distribution_filename::DistExtension;
+use distribution_types::Index;
 use pep440_rs::VersionSpecifiers;
 use pep508_rs::{MarkerTree, VerbatimUrl, VersionOrUrl};
 use pypi_types::{ParsedUrlError, Requirement, RequirementSource, VerbatimParsedUrl};
@@ -33,6 +34,7 @@ impl LoweredRequirement {
         project_name: &'data PackageName,
         project_dir: &'data Path,
         project_sources: &'data BTreeMap<PackageName, Sources>,
+        project_indexes: &'data [Index],
         workspace: &'data Workspace,
     ) -> impl Iterator<Item = Result<LoweredRequirement, LoweringError>> + 'data {
         let (source, origin) = if let Some(source) = project_sources.get(&requirement.name) {
@@ -151,7 +153,26 @@ impl LoweredRequirement {
                             (source, marker)
                         }
                         Source::Registry { index, marker } => {
-                            let source = registry_source(&requirement, index)?;
+                            // Identify the named index from either the project indexes or the workspace indexes,
+                            // in that order.
+                            let Some(index) = project_indexes
+                                .iter()
+                                .find(|Index { name, .. }| {
+                                    name.as_ref().is_some_and(|name| *name == index)
+                                })
+                                .or_else(|| {
+                                    workspace.indexes().iter().find(|Index { name, .. }| {
+                                        name.as_ref().is_some_and(|name| *name == index)
+                                    })
+                                })
+                                .map(|Index { url: index, .. }| index.clone())
+                            else {
+                                return Err(LoweringError::MissingIndex(
+                                    requirement.name.clone(),
+                                    index,
+                                ));
+                            };
+                            let source = registry_source(&requirement, index.into_url())?;
                             let marker = marker.map(MarkerTree::from).unwrap_or_default();
                             (source, marker)
                         }
@@ -244,6 +265,7 @@ impl LoweredRequirement {
         requirement: pep508_rs::Requirement<VerbatimParsedUrl>,
         dir: &'data Path,
         sources: &'data BTreeMap<PackageName, Sources>,
+        indexes: &'data [Index],
     ) -> impl Iterator<Item = Result<LoweredRequirement, LoweringError>> + 'data {
         let source = sources.get(&requirement.name).cloned();
 
@@ -327,7 +349,19 @@ impl LoweredRequirement {
                             (source, marker)
                         }
                         Source::Registry { index, marker } => {
-                            let source = registry_source(&requirement, index)?;
+                            let Some(index) = indexes
+                                .iter()
+                                .find(|Index { name, .. }| {
+                                    name.as_ref().is_some_and(|name| *name == index)
+                                })
+                                .map(|Index { url: index, .. }| index.clone())
+                            else {
+                                return Err(LoweringError::MissingIndex(
+                                    requirement.name.clone(),
+                                    index,
+                                ));
+                            };
+                            let source = registry_source(&requirement, index.into_url())?;
                             let marker = marker.map(MarkerTree::from).unwrap_or_default();
                             (source, marker)
                         }
@@ -375,6 +409,8 @@ pub enum LoweringError {
     MoreThanOneGitRef,
     #[error("Unable to combine options in `tool.uv.sources`")]
     InvalidEntry,
+    #[error("Package `{0}` references an undeclared index: `{1}`")]
+    MissingIndex(PackageName, String),
     #[error("Workspace members are not allowed in non-workspace contexts")]
     WorkspaceMember,
     #[error(transparent)]
@@ -465,7 +501,7 @@ fn url_source(url: Url, subdirectory: Option<PathBuf>) -> Result<RequirementSour
 /// Convert a registry source into a [`RequirementSource`].
 fn registry_source(
     requirement: &pep508_rs::Requirement<VerbatimParsedUrl>,
-    index: String,
+    index: Url,
 ) -> Result<RequirementSource, LoweringError> {
     match &requirement.version_or_url {
         None => {

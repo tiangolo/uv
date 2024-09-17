@@ -1,6 +1,6 @@
 use std::{fmt::Debug, num::NonZeroUsize, path::PathBuf};
 
-use distribution_types::{FlatIndexLocation, IndexUrl, StaticMetadata};
+use distribution_types::{FlatIndexLocation, Index, IndexUrl, StaticMetadata};
 use install_wheel_rs::linker::LinkMode;
 use pep508_rs::Requirement;
 use pypi_types::{SupportedEnvironments, VerbatimParsedUrl};
@@ -234,6 +234,7 @@ pub struct GlobalOptions {
 #[serde(rename_all = "kebab-case")]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct InstallerOptions {
+    pub index: Option<Vec<Index>>,
     pub index_url: Option<IndexUrl>,
     pub extra_index_url: Option<Vec<IndexUrl>>,
     pub no_index: Option<bool>,
@@ -261,6 +262,7 @@ pub struct InstallerOptions {
 #[serde(rename_all = "kebab-case")]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ResolverOptions {
+    pub index: Option<Vec<Index>>,
     pub index_url: Option<IndexUrl>,
     pub extra_index_url: Option<Vec<IndexUrl>>,
     pub no_index: Option<bool>,
@@ -294,13 +296,49 @@ pub struct ResolverOptions {
 #[serde(rename_all = "kebab-case")]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ResolverInstallerOptions {
+    /// The package indexes to use when resolving dependencies.
+    ///
+    /// Accepts either a repository compliant with [PEP 503](https://peps.python.org/pep-0503/)
+    /// (the simple repository API), or a local directory laid out in the same format.
+    ///
+    /// Indexes are considered in the order in which they're defined, such that the first-defined
+    /// index has the highest priority.
+    ///
+    /// If an index is marked as `explicit = true`, it will be used exclusively for those
+    /// dependencies that select it explicitly via `[tool.uv.sources]`, as in:
+    ///
+    /// ```toml
+    /// [[tool.uv.index]]
+    /// name = "pytorch"
+    /// url = "https://download.pytorch.org/whl/cu121"
+    /// explicit = true
+    ///
+    /// [tool.uv.sources]
+    /// torch = { index = "pytorch" }
+    /// ```
+    ///
+    /// Marking an index as `default = true` will disable the PyPI default index and move the
+    /// index to the end of the prioritized list, such that it is used when a package is not found
+    /// on any other index.
+    #[option(
+        default = "\"[]\"",
+        value_type = "dict",
+        example = r#"
+            [[tool.uv.index]]
+            name = "pytorch"
+            url = "https://download.pytorch.org/whl/cu121"
+        "#
+    )]
+    pub index: Option<Vec<Index>>,
     /// The URL of the Python package index (by default: <https://pypi.org/simple>).
     ///
     /// Accepts either a repository compliant with [PEP 503](https://peps.python.org/pep-0503/)
     /// (the simple repository API), or a local directory laid out in the same format.
     ///
     /// The index provided by this setting is given lower priority than any indexes specified via
-    /// [`extra_index_url`](#extra-index-url).
+    /// [`extra_index_url`](#extra-index-url) or [`index`](#index).
+    ///
+    /// (Deprecated: use `index` instead.)
     #[option(
         default = "\"https://pypi.org/simple\"",
         value_type = "str",
@@ -315,10 +353,13 @@ pub struct ResolverInstallerOptions {
     /// (the simple repository API), or a local directory laid out in the same format.
     ///
     /// All indexes provided via this flag take priority over the index specified by
-    /// [`index_url`](#index-url). When multiple indexes are provided, earlier values take priority.
+    /// [`index_url`](#index-url) or [`index`](#index) with `default = true`. When multiple indexes
+    /// are provided, earlier values take priority.
     ///
     /// To control uv's resolution strategy when multiple indexes are present, see
     /// [`index_strategy`](#index-strategy).
+    ///
+    /// (Deprecated: use `index` instead.)
     #[option(
         default = "[]",
         value_type = "list[str]",
@@ -357,8 +398,8 @@ pub struct ResolverInstallerOptions {
     ///
     /// By default, uv will stop at the first index on which a given package is available, and
     /// limit resolutions to those present on that first index (`first-match`). This prevents
-    /// "dependency confusion" attacks, whereby an attack can upload a malicious package under the
-    /// same name to a secondary.
+    /// "dependency confusion" attacks, whereby an attacker can upload a malicious package under the
+    /// same name to an alternate index.
     #[option(
         default = "\"first-index\"",
         value_type = "str",
@@ -704,6 +745,35 @@ pub struct PipOptions {
         "#
     )]
     pub prefix: Option<PathBuf>,
+    /// The indexes to use when resolving dependencies.
+    ///
+    /// Accepts either a repository compliant with [PEP 503](https://peps.python.org/pep-0503/)
+    /// (the simple repository API), or a local directory laid out in the same format.
+    ///
+    /// Indexes are considered in the order in which they're defined, such that the first-defined
+    /// index has the highest priority. Further, the indexes provided by this setting are given
+    /// higher priority than any indexes specified via [`index_url`](#index-url) or
+    /// [`extra_index_url`](#extra-index-url).
+    ///
+    /// If an index is marked as `explicit = true`, it will be used exclusively for those
+    /// dependencies that select it explicitly via `[tool.uv.sources]`, as in:
+    ///
+    /// ```toml
+    /// [[tool.uv.index]]
+    /// name = "pytorch"
+    /// url = "https://download.pytorch.org/whl/cu121"
+    /// explicit = true
+    ///
+    /// [tool.uv.sources]
+    /// torch = { index = "pytorch" }
+    /// ```
+    ///
+    /// If an index is marked as `default = true`, it will be moved to the front of the list of
+    /// the list of indexes, such that it is given the highest priority when resolving packages.
+    /// Additionally, marking an index as default will disable the PyPI default index.
+    #[serde(skip)]
+    #[cfg_attr(feature = "schemars", schemars(skip))]
+    pub index: Option<Vec<Index>>,
     /// The URL of the Python package index (by default: <https://pypi.org/simple>).
     ///
     /// Accepts either a repository compliant with [PEP 503](https://peps.python.org/pep-0503/)
@@ -767,8 +837,8 @@ pub struct PipOptions {
     ///
     /// By default, uv will stop at the first index on which a given package is available, and
     /// limit resolutions to those present on that first index (`first-match`). This prevents
-    /// "dependency confusion" attacks, whereby an attack can upload a malicious package under the
-    /// same name to a secondary.
+    /// "dependency confusion" attacks, whereby an attacker can upload a malicious package under the
+    /// same name to an alternate index.
     #[option(
         default = "\"first-index\"",
         value_type = "str",
@@ -1310,6 +1380,7 @@ pub struct PipOptions {
 impl From<ResolverInstallerOptions> for ResolverOptions {
     fn from(value: ResolverInstallerOptions) -> Self {
         Self {
+            index: value.index,
             index_url: value.index_url,
             extra_index_url: value.extra_index_url,
             no_index: value.no_index,
@@ -1339,6 +1410,7 @@ impl From<ResolverInstallerOptions> for ResolverOptions {
 impl From<ResolverInstallerOptions> for InstallerOptions {
     fn from(value: ResolverInstallerOptions) -> Self {
         Self {
+            index: value.index,
             index_url: value.index_url,
             extra_index_url: value.extra_index_url,
             no_index: value.no_index,
@@ -1372,6 +1444,7 @@ impl From<ResolverInstallerOptions> for InstallerOptions {
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ToolOptions {
+    pub index: Option<Vec<Index>>,
     pub index_url: Option<IndexUrl>,
     pub extra_index_url: Option<Vec<IndexUrl>>,
     pub no_index: Option<bool>,
@@ -1398,6 +1471,7 @@ pub struct ToolOptions {
 impl From<ResolverInstallerOptions> for ToolOptions {
     fn from(value: ResolverInstallerOptions) -> Self {
         Self {
+            index: value.index,
             index_url: value.index_url,
             extra_index_url: value.extra_index_url,
             no_index: value.no_index,
@@ -1426,6 +1500,7 @@ impl From<ResolverInstallerOptions> for ToolOptions {
 impl From<ToolOptions> for ResolverInstallerOptions {
     fn from(value: ToolOptions) -> Self {
         Self {
+            index: value.index,
             index_url: value.index_url,
             extra_index_url: value.extra_index_url,
             no_index: value.no_index,
@@ -1475,6 +1550,7 @@ pub struct OptionsWire {
 
     // #[serde(flatten)]
     // top_level: ResolverInstallerOptions,
+    index: Option<Vec<Index>>,
     index_url: Option<IndexUrl>,
     extra_index_url: Option<Vec<IndexUrl>>,
     no_index: Option<bool>,
@@ -1539,6 +1615,7 @@ impl From<OptionsWire> for Options {
             concurrent_downloads,
             concurrent_builds,
             concurrent_installs,
+            index,
             index_url,
             extra_index_url,
             no_index,
@@ -1592,6 +1669,7 @@ impl From<OptionsWire> for Options {
                 concurrent_installs,
             },
             top_level: ResolverInstallerOptions {
+                index,
                 index_url,
                 extra_index_url,
                 no_index,
