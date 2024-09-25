@@ -23,6 +23,7 @@ pep508_rs = { workspace = true }
 platform-tags = { workspace = true }
 pypi-types = { workspace = true }
 uv-auth = { workspace = true }
+uv-build-backend = { workspace = true }
 uv-cache = { workspace = true }
 uv-cache-info = { workspace = true }
 uv-cli = { workspace = true }
@@ -35,6 +36,8 @@ uv-fs = { workspace = true }
 uv-git = { workspace = true }
 uv-installer = { workspace = true }
 uv-normalize = { workspace = true }
+uv-performance-flate2-backend = { path = "../uv-performance-flate2-backend", optional = true }
+uv-performance-memory-allocator = { path = "../uv-performance-memory-allocator", optional = true }
 uv-publish = { workspace = true }
 uv-python = { workspace = true, features = ["schemars"] }
 uv-requirements = { workspace = true }
@@ -47,8 +50,6 @@ uv-types = { workspace = true }
 uv-virtualenv = { workspace = true }
 uv-warnings = { workspace = true }
 uv-workspace = { workspace = true }
-uv-performance-memory-allocator = { path = "../uv-performance-memory-allocator", optional = true }
-uv-performance-flate2-backend = { path = "../uv-performance-flate2-backend", optional = true }
 
 anstream = { workspace = true }
 anyhow = { workspace = true }

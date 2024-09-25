@@ -4505,6 +4505,7 @@ dependencies = [
  "unicode-width",
  "url",
  "uv-auth",
+ "uv-build-backend",
  "uv-cache",
  "uv-cache-info",
  "uv-cli",
@@ -4557,6 +4558,35 @@ dependencies = [
  "url",
  "urlencoding",
  "wiremock",
+]
+
+[[package]]
+name = "uv-build-backend"
+version = "0.1.0"
+dependencies = [
+ "async_zip",
+ "distribution-filename",
+ "fs-err",
+ "futures",
+ "glob",
+ "indoc",
+ "insta",
+ "itertools 0.13.0",
+ "pep440_rs",
+ "pep508_rs",
+ "pypi-types",
+ "serde",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "toml",
+ "tracing",
+ "uv-fs",
+ "uv-normalize",
+ "uv-pubgrub",
+ "uv-version",
+ "uv-warnings",
 ]
 
 [[package]]
