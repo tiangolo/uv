@@ -58,13 +58,40 @@ pub(crate) fn virtualenv_from_env() -> Option<PathBuf> {
 
 /// Locate an active conda environment by inspecting environment variables.
 ///
-/// Supports `CONDA_PREFIX`.
-pub(crate) fn conda_prefix_from_env() -> Option<PathBuf> {
-    if let Some(dir) = env::var_os("CONDA_PREFIX").filter(|value| !value.is_empty()) {
-        return Some(PathBuf::from(dir));
+/// If `base` is true, the active environment must be the base environment or `None` is returned,
+/// and vice-versa.
+pub(crate) fn conda_environment_from_env(base: bool) -> Option<PathBuf> {
+    let dir = env::var_os("CONDA_PREFIX").filter(|value| !value.is_empty())?;
+    let path = PathBuf::from(dir);
+
+    if base != is_conda_base_env(&path) {
+        return None;
+    };
+
+    Some(path)
+}
+
+/// Whether the given `CONDA_PREFIX` path is the base Conda environment.
+///
+/// When the base environment is used, `CONDA_DEFAULT_ENV` will be set to a name, i.e., `base` or
+/// `root` which does not match the prefix, e.g. `/usr/local` instead of
+/// `/usr/local/conda/envs/<name>`.
+fn is_conda_base_env(path: &Path) -> bool {
+    // If we cannot read `CONDA_DEFAULT_ENV`, there's no way to know if the base environment
+    let Ok(default_env) = env::var("CONDA_DEFAULT_ENV") else {
+        return false;
+    };
+
+    // These are the expected names for the base environment
+    if default_env != "base" && default_env != "root" {
+        return false;
     }
 
-    None
+    let Some(name) = path.file_name() else {
+        return false;
+    };
+
+    name.to_string_lossy() != default_env
 }
 
 /// Locate a virtual environment by searching the file system.
