@@ -9,7 +9,7 @@ use rustc_hash::{FxBuildHasher, FxHashMap};
 use tracing::debug;
 
 use cache_key::RepositoryUrl;
-use distribution_types::UnresolvedRequirement;
+use distribution_types::{Index, UnresolvedRequirement};
 use pep508_rs::{ExtraName, Requirement, UnnamedRequirement, VersionOrUrl};
 use pypi_types::{redact_git_credentials, ParsedUrl, RequirementSource, VerbatimParsedUrl};
 use uv_auth::{store_credentials, store_credentials_from_url, Credentials};
@@ -59,6 +59,7 @@ pub(crate) async fn add(
     editable: Option<bool>,
     dependency_type: DependencyType,
     raw_sources: bool,
+    indexes: Vec<Index>,
     rev: Option<String>,
     tag: Option<String>,
     branch: Option<String>,
@@ -486,6 +487,13 @@ pub(crate) async fn add(
             source,
             edit,
         });
+    }
+
+    // Add any indexes that were provided on the command-line.
+    if !raw_sources {
+        for index in indexes {
+            toml.add_index(&index)?;
+        }
     }
 
     let content = toml.to_string();
