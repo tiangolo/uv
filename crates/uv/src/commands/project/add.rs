@@ -12,7 +12,7 @@ use cache_key::RepositoryUrl;
 use distribution_types::UnresolvedRequirement;
 use pep508_rs::{ExtraName, Requirement, UnnamedRequirement, VersionOrUrl};
 use pypi_types::{redact_git_credentials, ParsedUrl, RequirementSource, VerbatimParsedUrl};
-use uv_auth::{store_credentials_from_url, Credentials};
+use uv_auth::{store_credentials, store_credentials_from_url, Credentials};
 use uv_cache::Cache;
 use uv_client::{BaseClientBuilder, Connectivity, FlatIndexClient, RegistryClientBuilder};
 use uv_configuration::{
@@ -242,8 +242,13 @@ pub(crate) async fn add(
         resolution_environment(python_version, python_platform, target.interpreter())?;
 
     // Add all authenticated sources to the cache.
-    for url in settings.index_locations.allowed_urls() {
-        store_credentials_from_url(url);
+    for index in settings.index_locations.allowed_indexes() {
+        if let Some(credentials) = index.credentials() {
+            store_credentials(index.raw_url(), credentials);
+        }
+    }
+    for index in settings.index_locations.flat_indexes() {
+        store_credentials_from_url(index.url());
     }
 
     // Initialize the registry client.
@@ -272,7 +277,9 @@ pub(crate) async fn add(
     // Resolve the flat indexes from `--find-links`.
     let flat_index = {
         let client = FlatIndexClient::new(&client, cache);
-        let entries = client.fetch(settings.index_locations.flat_index()).await?;
+        let entries = client
+            .fetch(settings.index_locations.flat_indexes())
+            .await?;
         FlatIndex::from_entries(entries, Some(&tags), &hasher, &settings.build_options)
     };
 

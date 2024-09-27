@@ -14,7 +14,7 @@ use distribution_types::{
 };
 use pep440_rs::Version;
 use pypi_types::{Requirement, SupportedEnvironments};
-use uv_auth::store_credentials_from_url;
+use uv_auth::{store_credentials, store_credentials_from_url};
 use uv_cache::Cache;
 use uv_client::{Connectivity, FlatIndexClient, RegistryClientBuilder};
 use uv_configuration::{
@@ -354,8 +354,13 @@ async fn do_lock(
         PythonRequirement::from_requires_python(interpreter, requires_python.clone());
 
     // Add all authenticated sources to the cache.
-    for url in index_locations.allowed_urls() {
-        store_credentials_from_url(url);
+    for index in index_locations.allowed_indexes() {
+        if let Some(credentials) = index.credentials() {
+            store_credentials(index.raw_url(), credentials);
+        }
+    }
+    for index in index_locations.flat_indexes() {
+        store_credentials_from_url(index.url());
     }
 
     // Initialize the registry client.
@@ -399,7 +404,7 @@ async fn do_lock(
     // Resolve the flat indexes from `--find-links`.
     let flat_index = {
         let client = FlatIndexClient::new(&client, cache);
-        let entries = client.fetch(index_locations.flat_index()).await?;
+        let entries = client.fetch(index_locations.flat_indexes()).await?;
         FlatIndex::from_entries(entries, None, &hasher, build_options)
     };
 

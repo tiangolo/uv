@@ -11,7 +11,7 @@ use distribution_types::{
 use pep440_rs::{Version, VersionSpecifiers};
 use pep508_rs::MarkerTreeContents;
 use pypi_types::Requirement;
-use uv_auth::store_credentials_from_url;
+use uv_auth::{store_credentials, store_credentials_from_url};
 use uv_cache::Cache;
 use uv_client::{BaseClientBuilder, Connectivity, FlatIndexClient, RegistryClientBuilder};
 use uv_configuration::{Concurrency, Constraints, ExtrasSpecification, Reinstall, Upgrade};
@@ -626,8 +626,13 @@ pub(crate) async fn resolve_names(
     } = settings;
 
     // Add all authenticated sources to the cache.
-    for url in index_locations.allowed_urls() {
-        store_credentials_from_url(url);
+    for index in index_locations.allowed_indexes() {
+        if let Some(credentials) = index.credentials() {
+            store_credentials(index.raw_url(), credentials);
+        }
+    }
+    for index in index_locations.flat_indexes() {
+        store_credentials_from_url(index.url());
     }
 
     // Initialize the registry client.
@@ -774,8 +779,13 @@ pub(crate) async fn resolve_environment<'a>(
     let python_requirement = PythonRequirement::from_interpreter(interpreter);
 
     // Add all authenticated sources to the cache.
-    for url in index_locations.allowed_urls() {
-        store_credentials_from_url(url);
+    for index in index_locations.allowed_indexes() {
+        if let Some(credentials) = index.credentials() {
+            store_credentials(index.raw_url(), credentials);
+        }
+    }
+    for index in index_locations.flat_indexes() {
+        store_credentials_from_url(index.url());
     }
 
     // Initialize the registry client.
@@ -837,7 +847,7 @@ pub(crate) async fn resolve_environment<'a>(
     // Resolve the flat indexes from `--find-links`.
     let flat_index = {
         let client = FlatIndexClient::new(&client, cache);
-        let entries = client.fetch(index_locations.flat_index()).await?;
+        let entries = client.fetch(index_locations.flat_indexes()).await?;
         FlatIndex::from_entries(entries, Some(tags), &hasher, build_options)
     };
 
@@ -933,8 +943,13 @@ pub(crate) async fn sync_environment(
     let markers = interpreter.resolver_markers();
 
     // Add all authenticated sources to the cache.
-    for url in index_locations.allowed_urls() {
-        store_credentials_from_url(url);
+    for index in index_locations.allowed_indexes() {
+        if let Some(credentials) = index.credentials() {
+            store_credentials(index.raw_url(), credentials);
+        }
+    }
+    for index in index_locations.flat_indexes() {
+        store_credentials_from_url(index.url());
     }
 
     // Initialize the registry client.
@@ -968,7 +983,7 @@ pub(crate) async fn sync_environment(
     // Resolve the flat indexes from `--find-links`.
     let flat_index = {
         let client = FlatIndexClient::new(&client, cache);
-        let entries = client.fetch(index_locations.flat_index()).await?;
+        let entries = client.fetch(index_locations.flat_indexes()).await?;
         FlatIndex::from_entries(entries, Some(tags), &hasher, build_options)
     };
 
@@ -1122,8 +1137,13 @@ pub(crate) async fn update_environment(
     }
 
     // Add all authenticated sources to the cache.
-    for url in index_locations.allowed_urls() {
-        store_credentials_from_url(url);
+    for index in index_locations.allowed_indexes() {
+        if let Some(credentials) = index.credentials() {
+            store_credentials(index.raw_url(), credentials);
+        }
+    }
+    for index in index_locations.flat_indexes() {
+        store_credentials_from_url(index.url());
     }
 
     // Initialize the registry client.
@@ -1171,7 +1191,7 @@ pub(crate) async fn update_environment(
     // Resolve the flat indexes from `--find-links`.
     let flat_index = {
         let client = FlatIndexClient::new(&client, cache);
-        let entries = client.fetch(index_locations.flat_index()).await?;
+        let entries = client.fetch(index_locations.flat_indexes()).await?;
         FlatIndex::from_entries(entries, Some(tags), &hasher, build_options)
     };
 
@@ -1351,7 +1371,7 @@ fn warn_on_requirements_txt_setting(
             }
         }
         for find_link in find_links {
-            if !settings.index_locations.flat_index().contains(find_link) {
+            if !settings.index_locations.flat_indexes().contains(find_link) {
                 warn_user_once!(
                     "Ignoring `--find-links` from requirements file: `{find_link}`. Instead, use the `--find-links` command-line argument, or set `find-links` in a `uv.toml` or `pyproject.toml` file.`"
                 );

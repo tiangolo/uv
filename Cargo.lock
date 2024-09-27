@@ -1017,6 +1017,7 @@ dependencies = [
  "tracing",
  "url",
  "urlencoding",
+ "uv-auth",
  "uv-cache-info",
  "uv-fs",
  "uv-git",

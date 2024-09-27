@@ -12,7 +12,7 @@ use thiserror::Error;
 use distribution_types::{DependencyMetadata, IndexLocations};
 use install_wheel_rs::linker::LinkMode;
 use pypi_types::Requirement;
-use uv_auth::store_credentials_from_url;
+use uv_auth::{store_credentials, store_credentials_from_url};
 use uv_cache::Cache;
 use uv_client::{BaseClientBuilder, Connectivity, FlatIndexClient, RegistryClientBuilder};
 use uv_configuration::{
@@ -226,8 +226,13 @@ async fn venv_impl(
     let interpreter = python.into_interpreter();
 
     // Add all authenticated sources to the cache.
-    for url in index_locations.allowed_urls() {
-        store_credentials_from_url(url);
+    for index in index_locations.allowed_indexes() {
+        if let Some(credentials) = index.credentials() {
+            store_credentials(index.raw_url(), credentials);
+        }
+    }
+    for index in index_locations.flat_indexes() {
+        store_credentials_from_url(index.url());
     }
 
     if managed {
@@ -275,8 +280,13 @@ async fn venv_impl(
         let interpreter = venv.interpreter();
 
         // Add all authenticated sources to the cache.
-        for url in index_locations.allowed_urls() {
-            store_credentials_from_url(url);
+        for index in index_locations.allowed_indexes() {
+            if let Some(credentials) = index.credentials() {
+                store_credentials(index.raw_url(), credentials);
+            }
+        }
+        for index in index_locations.flat_indexes() {
+            store_credentials_from_url(index.url());
         }
 
         // Instantiate a client.
@@ -296,7 +306,7 @@ async fn venv_impl(
             let tags = interpreter.tags().map_err(VenvError::Tags)?;
             let client = FlatIndexClient::new(&client, cache);
             let entries = client
-                .fetch(index_locations.flat_index())
+                .fetch(index_locations.flat_indexes())
                 .await
                 .map_err(VenvError::FlatIndex)?;
             FlatIndex::from_entries(

@@ -1055,7 +1055,7 @@ impl Lock {
                 })
                 .chain(
                     locations
-                        .flat_index()
+                        .flat_indexes()
                         .filter_map(|index_url| match index_url {
                             FlatIndexLocation::Url(_) => {
                                 Some(UrlString::from(index_url.redacted()))
@@ -1081,7 +1081,7 @@ impl Lock {
                 })
                 .chain(
                     locations
-                        .flat_index()
+                        .flat_indexes()
                         .filter_map(|index_url| match index_url {
                             FlatIndexLocation::Url(_) => None,
                             FlatIndexLocation::Path(index_url) => {
