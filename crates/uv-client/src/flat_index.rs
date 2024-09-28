@@ -6,7 +6,7 @@ use tracing::{debug, info_span, warn, Instrument};
 use url::Url;
 
 use distribution_filename::DistFilename;
-use distribution_types::{File, FileLocation, FlatIndexLocation, IndexUrl, UrlString};
+use distribution_types::{File, FileLocation, IndexUrl, UrlString};
 use uv_cache::{Cache, CacheBucket};
 
 use crate::cached_client::{CacheControl, CachedClientError};
@@ -94,19 +94,19 @@ impl<'a> FlatIndexClient<'a> {
     #[allow(clippy::result_large_err)]
     pub async fn fetch(
         &self,
-        indexes: impl Iterator<Item = &FlatIndexLocation>,
+        indexes: impl Iterator<Item = &IndexUrl>,
     ) -> Result<FlatIndexEntries, FlatIndexError> {
         let mut fetches = futures::stream::iter(indexes)
             .map(|index| async move {
                 let entries = match index {
-                    FlatIndexLocation::Path(url) => {
+                    IndexUrl::Path(url) => {
                         let path = url
                             .to_file_path()
                             .map_err(|()| FlatIndexError::NonFileUrl(url.to_url()))?;
                         Self::read_from_directory(&path, index)
                             .map_err(|err| FlatIndexError::FindLinksDirectory(path.clone(), err))?
                     }
-                    FlatIndexLocation::Url(url) => self
+                    IndexUrl::Pypi(url) | IndexUrl::Url(url) => self
                         .read_from_url(url, index)
                         .await
                         .map_err(|err| FlatIndexError::FindLinksUrl(url.to_url(), err))?,
@@ -136,7 +136,7 @@ impl<'a> FlatIndexClient<'a> {
     async fn read_from_url(
         &self,
         url: &Url,
-        flat_index: &FlatIndexLocation,
+        flat_index: &IndexUrl,
     ) -> Result<FlatIndexEntries, Error> {
         let cache_entry = self.cache.entry(
             CacheBucket::FlatIndex,
@@ -210,7 +210,7 @@ impl<'a> FlatIndexClient<'a> {
                         Some((
                             DistFilename::try_from_normalized_filename(&file.filename)?,
                             file,
-                            IndexUrl::from(flat_index.clone()),
+                            flat_index.clone(),
                         ))
                     })
                     .collect();
@@ -226,7 +226,7 @@ impl<'a> FlatIndexClient<'a> {
     /// Read a flat remote index from a `--find-links` directory.
     fn read_from_directory(
         path: &Path,
-        flat_index: &FlatIndexLocation,
+        flat_index: &IndexUrl,
     ) -> Result<FlatIndexEntries, FindLinksDirectoryError> {
         let mut dists = Vec::new();
         for entry in fs_err::read_dir(path)? {
@@ -279,7 +279,7 @@ impl<'a> FlatIndexClient<'a> {
                 );
                 continue;
             };
-            dists.push((filename, file, IndexUrl::from(flat_index.clone())));
+            dists.push((filename, file, flat_index.clone()));
         }
         Ok(FlatIndexEntries::from_entries(dists))
     }

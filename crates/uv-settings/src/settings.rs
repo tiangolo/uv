@@ -1,6 +1,6 @@
 use std::{fmt::Debug, num::NonZeroUsize, path::PathBuf};
 
-use distribution_types::{FlatIndexLocation, Index, IndexUrl, StaticMetadata};
+use distribution_types::{Index, IndexUrl, StaticMetadata};
 use install_wheel_rs::linker::LinkMode;
 use pep508_rs::Requirement;
 use pypi_types::{SupportedEnvironments, VerbatimParsedUrl};
@@ -238,7 +238,7 @@ pub struct InstallerOptions {
     pub index_url: Option<IndexUrl>,
     pub extra_index_url: Option<Vec<IndexUrl>>,
     pub no_index: Option<bool>,
-    pub find_links: Option<Vec<FlatIndexLocation>>,
+    pub find_links: Option<Vec<IndexUrl>>,
     pub index_strategy: Option<IndexStrategy>,
     pub keyring_provider: Option<KeyringProviderType>,
     pub allow_insecure_host: Option<Vec<TrustedHost>>,
@@ -266,7 +266,7 @@ pub struct ResolverOptions {
     pub index_url: Option<IndexUrl>,
     pub extra_index_url: Option<Vec<IndexUrl>>,
     pub no_index: Option<bool>,
-    pub find_links: Option<Vec<FlatIndexLocation>>,
+    pub find_links: Option<Vec<IndexUrl>>,
     pub index_strategy: Option<IndexStrategy>,
     pub keyring_provider: Option<KeyringProviderType>,
     pub allow_insecure_host: Option<Vec<TrustedHost>>,
@@ -393,7 +393,7 @@ pub struct ResolverInstallerOptions {
             find-links = ["https://download.pytorch.org/whl/torch_stable.html"]
         "#
     )]
-    pub find_links: Option<Vec<FlatIndexLocation>>,
+    pub find_links: Option<Vec<IndexUrl>>,
     /// The strategy to use when resolving against multiple index URLs.
     ///
     /// By default, uv will stop at the first index on which a given package is available, and
@@ -832,7 +832,7 @@ pub struct PipOptions {
             find-links = ["https://download.pytorch.org/whl/torch_stable.html"]
         "#
     )]
-    pub find_links: Option<Vec<FlatIndexLocation>>,
+    pub find_links: Option<Vec<IndexUrl>>,
     /// The strategy to use when resolving against multiple index URLs.
     ///
     /// By default, uv will stop at the first index on which a given package is available, and
@@ -1448,7 +1448,7 @@ pub struct ToolOptions {
     pub index_url: Option<IndexUrl>,
     pub extra_index_url: Option<Vec<IndexUrl>>,
     pub no_index: Option<bool>,
-    pub find_links: Option<Vec<FlatIndexLocation>>,
+    pub find_links: Option<Vec<IndexUrl>>,
     pub index_strategy: Option<IndexStrategy>,
     pub keyring_provider: Option<KeyringProviderType>,
     pub allow_insecure_host: Option<Vec<TrustedHost>>,
@@ -1554,7 +1554,7 @@ pub struct OptionsWire {
     index_url: Option<IndexUrl>,
     extra_index_url: Option<Vec<IndexUrl>>,
     no_index: Option<bool>,
-    find_links: Option<Vec<FlatIndexLocation>>,
+    find_links: Option<Vec<IndexUrl>>,
     index_strategy: Option<IndexStrategy>,
     keyring_provider: Option<KeyringProviderType>,
     allow_insecure_host: Option<Vec<TrustedHost>>,

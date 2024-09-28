@@ -12,7 +12,7 @@ use cache_key::RepositoryUrl;
 use distribution_types::{Index, UnresolvedRequirement};
 use pep508_rs::{ExtraName, Requirement, UnnamedRequirement, VersionOrUrl};
 use pypi_types::{redact_git_credentials, ParsedUrl, RequirementSource, VerbatimParsedUrl};
-use uv_auth::{store_credentials, store_credentials_from_url, Credentials};
+use uv_auth::{store_credentials, Credentials};
 use uv_cache::Cache;
 use uv_client::{BaseClientBuilder, Connectivity, FlatIndexClient, RegistryClientBuilder};
 use uv_configuration::{
@@ -248,9 +248,6 @@ pub(crate) async fn add(
             store_credentials(index.raw_url(), credentials);
         }
     }
-    for index in settings.index_locations.flat_indexes() {
-        store_credentials_from_url(index.url());
-    }
 
     // Initialize the registry client.
     let client = RegistryClientBuilder::try_from(client_builder)?
@@ -279,7 +276,7 @@ pub(crate) async fn add(
     let flat_index = {
         let client = FlatIndexClient::new(&client, cache);
         let entries = client
-            .fetch(settings.index_locations.flat_indexes())
+            .fetch(settings.index_locations.flat_indexes().map(Index::url))
             .await?;
         FlatIndex::from_entries(entries, Some(&tags), &hasher, &settings.build_options)
     };

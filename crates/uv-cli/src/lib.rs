@@ -7,7 +7,7 @@ use anyhow::{anyhow, Result};
 use clap::builder::styling::{AnsiColor, Effects, Style};
 use clap::builder::Styles;
 use clap::{Args, Parser, Subcommand};
-use distribution_types::{FlatIndexLocation, Index, IndexUrl};
+use distribution_types::{Index, IndexUrl};
 use pep508_rs::Requirement;
 use pypi_types::VerbatimParsedUrl;
 use url::Url;
@@ -3783,7 +3783,7 @@ pub struct IndexArgs {
     /// If a URL, the page must contain a flat list of links to package files adhering to the
     /// formats described above.
     #[arg(long, short, help_heading = "Index options")]
-    pub find_links: Option<Vec<FlatIndexLocation>>,
+    pub find_links: Option<Vec<IndexUrl>>,
 
     /// Ignore the registry index (e.g., PyPI), instead relying on direct URL dependencies and those
     /// provided via `--find-links`.

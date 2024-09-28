@@ -87,16 +87,7 @@ impl<'a> RegistryWheelIndex<'a> {
     ) -> IndexMap<Index, BTreeMap<Version, CachedRegistryDist>> {
         let mut map = IndexMap::new();
 
-        // Collect into owned `IndexUrl`.
-        let flat_index_urls: Vec<Index> = index_locations
-            .flat_indexes()
-            .map(|flat_index| Index::from_extra_index_url(IndexUrl::from(flat_index.clone())))
-            .collect();
-
-        for index in index_locations
-            .allowed_indexes()
-            .chain(flat_index_urls.iter())
-        {
+        for index in index_locations.allowed_indexes() {
             let mut versions = BTreeMap::new();
 
             // Index all the wheels that were downloaded directly from the registry.

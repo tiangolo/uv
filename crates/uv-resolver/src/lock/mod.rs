@@ -18,10 +18,9 @@ use cache_key::RepositoryUrl;
 use distribution_filename::{DistExtension, ExtensionError, SourceDistExtension, WheelFilename};
 use distribution_types::{
     BuiltDist, DependencyMetadata, DirectUrlBuiltDist, DirectUrlSourceDist, DirectorySourceDist,
-    Dist, DistributionMetadata, FileLocation, FlatIndexLocation, GitSourceDist, HashPolicy,
-    IndexLocations, IndexUrl, Name, PathBuiltDist, PathSourceDist, RegistryBuiltDist,
-    RegistryBuiltWheel, RegistrySourceDist, RemoteSource, Resolution, ResolvedDist, StaticMetadata,
-    ToUrlError, UrlString,
+    Dist, DistributionMetadata, FileLocation, GitSourceDist, HashPolicy, IndexLocations, IndexUrl,
+    Name, PathBuiltDist, PathSourceDist, RegistryBuiltDist, RegistryBuiltWheel, RegistrySourceDist,
+    RemoteSource, Resolution, ResolvedDist, StaticMetadata, ToUrlError, UrlString,
 };
 use pep440_rs::Version;
 use pep508_rs::{split_scheme, MarkerEnvironment, MarkerTree, VerbatimUrl, VerbatimUrlError};
@@ -1053,16 +1052,6 @@ impl Lock {
                     }
                     IndexUrl::Path(_) => None,
                 })
-                .chain(
-                    locations
-                        .flat_indexes()
-                        .filter_map(|index_url| match index_url {
-                            FlatIndexLocation::Url(_) => {
-                                Some(UrlString::from(index_url.redacted()))
-                            }
-                            FlatIndexLocation::Path(_) => None,
-                        }),
-                )
                 .collect::<BTreeSet<_>>()
         });
 
@@ -1079,20 +1068,6 @@ impl Lock {
                         Some(path)
                     }
                 })
-                .chain(
-                    locations
-                        .flat_indexes()
-                        .filter_map(|index_url| match index_url {
-                            FlatIndexLocation::Url(_) => None,
-                            FlatIndexLocation::Path(index_url) => {
-                                let path = index_url.to_file_path().ok()?;
-                                let path = relative_to(&path, workspace.install_path())
-                                    .or_else(|_| std::path::absolute(path))
-                                    .ok()?;
-                                Some(path)
-                            }
-                        }),
-                )
                 .collect::<BTreeSet<_>>()
         });
 

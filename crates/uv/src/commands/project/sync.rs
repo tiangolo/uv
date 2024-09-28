@@ -6,7 +6,7 @@ use crate::commands::{pip, project, ExitStatus};
 use crate::printer::Printer;
 use crate::settings::{InstallerSettingsRef, ResolverInstallerSettings};
 use anyhow::{Context, Result};
-use distribution_types::{DirectorySourceDist, Dist, ResolvedDist, SourceDist};
+use distribution_types::{DirectorySourceDist, Dist, Index, ResolvedDist, SourceDist};
 use itertools::Itertools;
 use pep508_rs::{MarkerTree, Requirement, VersionOrUrl};
 use pypi_types::{
@@ -15,7 +15,7 @@ use pypi_types::{
 use std::borrow::Cow;
 use std::path::Path;
 use std::str::FromStr;
-use uv_auth::{store_credentials, store_credentials_from_url};
+use uv_auth::store_credentials;
 use uv_cache::Cache;
 use uv_client::{Connectivity, FlatIndexClient, RegistryClientBuilder};
 use uv_configuration::{
@@ -260,9 +260,6 @@ pub(super) async fn do_sync(
             store_credentials(index.raw_url(), credentials);
         }
     }
-    for index in index_locations.flat_indexes() {
-        store_credentials_from_url(index.url());
-    }
 
     // Populate credentials from the workspace.
     store_credentials_from_workspace(target.workspace());
@@ -300,7 +297,9 @@ pub(super) async fn do_sync(
     // Resolve the flat indexes from `--find-links`.
     let flat_index = {
         let client = FlatIndexClient::new(&client, cache);
-        let entries = client.fetch(index_locations.flat_indexes()).await?;
+        let entries = client
+            .fetch(index_locations.flat_indexes().map(Index::url))
+            .await?;
         FlatIndex::from_entries(entries, Some(tags), &hasher, build_options)
     };
 

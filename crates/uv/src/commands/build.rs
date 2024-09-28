@@ -4,11 +4,11 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use distribution_filename::SourceDistExtension;
-use distribution_types::{DependencyMetadata, IndexLocations};
+use distribution_types::{DependencyMetadata, Index, IndexLocations};
 use install_wheel_rs::linker::LinkMode;
 use owo_colors::OwoColorize;
 
-use uv_auth::{store_credentials, store_credentials_from_url};
+use uv_auth::store_credentials;
 use uv_cache::Cache;
 use uv_client::{BaseClientBuilder, Connectivity, FlatIndexClient, RegistryClientBuilder};
 use uv_configuration::{
@@ -396,9 +396,6 @@ async fn build_package(
             store_credentials(index.raw_url(), credentials);
         }
     }
-    for index in index_locations.flat_indexes() {
-        store_credentials_from_url(index.url());
-    }
 
     // Read build constraints.
     let build_constraints = operations::read_constraints(build_constraints, client_builder).await?;
@@ -450,7 +447,9 @@ async fn build_package(
     // Resolve the flat indexes from `--find-links`.
     let flat_index = {
         let client = FlatIndexClient::new(&client, cache);
-        let entries = client.fetch(index_locations.flat_indexes()).await?;
+        let entries = client
+            .fetch(index_locations.flat_indexes().map(Index::url))
+            .await?;
         FlatIndex::from_entries(entries, None, &hasher, build_options)
     };
 
