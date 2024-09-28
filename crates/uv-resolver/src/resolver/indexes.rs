@@ -1,9 +1,8 @@
-use crate::{DependencyMode, Manifest, ResolveError, ResolverMarkers};
+use crate::resolver::ForkMap;
+use crate::{DependencyMode, Manifest, ResolverMarkers};
 use distribution_types::IndexUrl;
 use pep508_rs::{PackageName, VerbatimUrl};
 use pypi_types::RequirementSource;
-use rustc_hash::FxHashMap;
-use std::collections::hash_map::Entry;
 
 /// A map of package names to their explicit index.
 ///
@@ -19,7 +18,7 @@ use std::collections::hash_map::Entry;
 ///
 /// [`Indexes`] would contain a single entry mapping `torch` to `https://download.pytorch.org/whl/cu121`.
 #[derive(Debug, Default, Clone)]
-pub(crate) struct Indexes(FxHashMap<PackageName, IndexUrl>);
+pub(crate) struct Indexes(ForkMap<IndexUrl>);
 
 impl Indexes {
     /// Determine the set of explicit, pinned indexes in the [`Manifest`].
@@ -27,8 +26,8 @@ impl Indexes {
         manifest: &Manifest,
         markers: &ResolverMarkers,
         dependencies: DependencyMode,
-    ) -> Result<Self, ResolveError> {
-        let mut indexes = FxHashMap::<PackageName, IndexUrl>::default();
+    ) -> Self {
+        let mut indexes = ForkMap::default();
 
         for requirement in manifest.requirements(markers, dependencies) {
             let RequirementSource::Registry {
@@ -38,28 +37,23 @@ impl Indexes {
                 continue;
             };
             let index = IndexUrl::from(VerbatimUrl::from_url(index.clone()));
-            match indexes.entry(requirement.name.clone()) {
-                Entry::Occupied(entry) => {
-                    let existing = entry.get();
-                    if *existing != index {
-                        return Err(ResolveError::ConflictingIndexes(
-                            requirement.name.clone(),
-                            existing.to_string(),
-                            index.to_string(),
-                        ));
-                    }
-                }
-                Entry::Vacant(entry) => {
-                    entry.insert(index);
-                }
-            }
+            indexes.add(&requirement, index);
         }
 
-        Ok(Self(indexes))
+        Self(indexes)
     }
 
-    /// Return the explicit index for a given [`PackageName`].
-    pub(crate) fn get(&self, package_name: &PackageName) -> Option<&IndexUrl> {
-        self.0.get(package_name)
+    /// Returns `true` if the map contains any indexes for a package.
+    pub(crate) fn contains_key(&self, name: &PackageName) -> bool {
+        self.0.contains_key(name)
+    }
+
+    /// Return the explicit index used for a package in the given fork.
+    pub(crate) fn get(
+        &self,
+        package_name: &PackageName,
+        markers: &ResolverMarkers,
+    ) -> Vec<&IndexUrl> {
+        self.0.get(package_name, markers)
     }
 }

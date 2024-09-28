@@ -6,7 +6,7 @@ use rustc_hash::FxHashMap;
 use tokio::sync::mpsc::Sender;
 use tracing::{debug, trace};
 
-use distribution_types::{CompatibleDist, DistributionMetadata, IndexCapabilities};
+use distribution_types::{CompatibleDist, DistributionMetadata, IndexCapabilities, IndexUrl};
 use pep440_rs::Version;
 
 use crate::candidate_selector::CandidateSelector;
@@ -47,11 +47,12 @@ impl BatchPrefetcher {
     pub(crate) fn prefetch_batches(
         &mut self,
         next: &PubGrubPackage,
+        index: Option<&IndexUrl>,
         version: &Version,
         current_range: &Range<Version>,
         python_requirement: &PythonRequirement,
         request_sink: &Sender<Request>,
-        index: &InMemoryIndex,
+        in_memory: &InMemoryIndex,
         capabilities: &IndexCapabilities,
         selector: &CandidateSelector,
         markers: &ResolverMarkers,
@@ -73,10 +74,17 @@ impl BatchPrefetcher {
         let total_prefetch = min(num_tried, 50);
 
         // This is immediate, we already fetched the version map.
-        let versions_response = index
-            .packages()
-            .wait_blocking(name)
-            .ok_or_else(|| ResolveError::UnregisteredTask(name.to_string()))?;
+        let versions_response = if let Some(index) = index {
+            in_memory
+                .explicit()
+                .wait_blocking(&(name.clone(), index.clone()))
+                .ok_or_else(|| ResolveError::UnregisteredTask(name.to_string()))?
+        } else {
+            in_memory
+                .implicit()
+                .wait_blocking(name)
+                .ok_or_else(|| ResolveError::UnregisteredTask(name.to_string()))?
+        };
 
         let VersionsResponse::Found(ref version_map) = *versions_response else {
             return Ok(());
@@ -191,7 +199,7 @@ impl BatchPrefetcher {
             );
             prefetch_count += 1;
 
-            if index.distributions().register(candidate.version_id()) {
+            if in_memory.distributions().register(candidate.version_id()) {
                 let request = Request::from(dist);
                 request_sink.blocking_send(request)?;
             }

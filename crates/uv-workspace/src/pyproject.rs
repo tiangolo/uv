@@ -523,16 +523,6 @@ impl TryFrom<SourcesWire> for Sources {
                     return Err(SourceError::EmptySources);
                 }
 
-                // Ensure that there is at most one registry source.
-                if sources
-                    .iter()
-                    .filter(|source| matches!(source, Source::Registry { .. }))
-                    .nth(1)
-                    .is_some()
-                {
-                    return Err(SourceError::MultipleIndexes);
-                }
-
                 Ok(Self(sources))
             }
         }
@@ -635,8 +625,6 @@ pub enum SourceError {
     OverlappingMarkers(String, String, String),
     #[error("Must provide at least one source")]
     EmptySources,
-    #[error("Sources can only include a single index source")]
-    MultipleIndexes,
 }
 
 impl Source {
