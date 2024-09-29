@@ -467,7 +467,7 @@ impl PyProjectToml {
                 .chars()
                 .all(|c| c.is_alphanumeric() || c == '.' || c == '-')
             {
-                return Err(ValidationError::InvalidName(name.to_string()).into());
+                return Err(ValidationError::InvalidName(name.to_string()));
             }
 
             // TODO(konsti): Validate that the object references are valid Python identifiers.
@@ -936,7 +936,7 @@ mod tests {
     }
 
     fn script_error(contents: &str) -> String {
-        let err = PyProjectToml::parse(&contents)
+        let err = PyProjectToml::parse(contents)
             .unwrap()
             .to_entry_points()
             .unwrap_err();

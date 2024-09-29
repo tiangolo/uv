@@ -22,7 +22,6 @@ uv-warnings = { workspace = true }
 
 async_zip = { workspace = true }
 fs-err = { workspace = true, features = ["tokio"] }
-futures = { workspace = true }
 glob = { workspace = true }
 itertools = { workspace = true }
 serde = { workspace = true }

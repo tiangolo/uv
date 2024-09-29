@@ -4567,7 +4567,6 @@ dependencies = [
  "async_zip",
  "distribution-filename",
  "fs-err",
- "futures",
  "glob",
  "indoc",
  "insta",
